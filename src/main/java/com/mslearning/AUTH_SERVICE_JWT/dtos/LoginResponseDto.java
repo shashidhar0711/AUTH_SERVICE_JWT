@@ -5,4 +5,5 @@ import lombok.Data;
 @Data
 public class LoginResponseDto {
     private RequestStatus requestStatus;
+//    private String token;
 }
