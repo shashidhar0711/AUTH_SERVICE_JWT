@@ -5,8 +5,10 @@ import com.mslearning.AUTH_SERVICE_JWT.exceptions.UserAlreadyExistException;
 import com.mslearning.AUTH_SERVICE_JWT.exceptions.UserNotFoundException;
 import com.mslearning.AUTH_SERVICE_JWT.exceptions.WrongPasswordException;
 import com.mslearning.AUTH_SERVICE_JWT.models.Role;
+import com.mslearning.AUTH_SERVICE_JWT.models.Session;
 import com.mslearning.AUTH_SERVICE_JWT.models.User;
 import com.mslearning.AUTH_SERVICE_JWT.repositories.RoleRepository;
+import com.mslearning.AUTH_SERVICE_JWT.repositories.SessionRepository;
 import com.mslearning.AUTH_SERVICE_JWT.repositories.UserRepository;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -25,6 +27,7 @@ public class AuthService {
     private UserRepository userRepository;
     private BCryptPasswordEncoder bCryptPasswordEncoder;
     private RoleRepository roleRepository;
+    private SessionRepository sessionRepository;
 //    private SecretKey key = Jwts.SIG.HS256.key().build();
 
     @Value("${jwt.secret}")
@@ -38,10 +41,12 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository,
                        BCryptPasswordEncoder bCryptPasswordEncoder,
-                       RoleRepository roleRepository) {
+                       RoleRepository roleRepository,
+                       SessionRepository sessionRepository) {
         this.userRepository = userRepository;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
         this.roleRepository = roleRepository;
+        this.sessionRepository = sessionRepository;
     }
 
     @PostConstruct
@@ -90,6 +95,19 @@ public class AuthService {
             String token = creatJwtToken(userOptional.get().getId(),
                            roles,
                            userOptional.get().getEmail());
+
+            Session session = new Session();
+            session.setToken(token);
+            session.setUser(userOptional.get());
+
+            Calendar calendar = Calendar.getInstance();
+            Date currentDate = calendar.getTime();
+
+            calendar.add(Calendar.DAY_OF_MONTH, 30);
+            Date datePlus30Days = calendar.getTime();
+            session.setExpireAt(datePlus30Days);
+
+            sessionRepository.save(session);
 
             return token;
         } else {
