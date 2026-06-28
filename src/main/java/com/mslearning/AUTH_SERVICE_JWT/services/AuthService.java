@@ -1,11 +1,10 @@
 package com.mslearning.AUTH_SERVICE_JWT.services;
 
 import com.mslearning.AUTH_SERVICE_JWT.dtos.JwtUserDto;
-import com.mslearning.AUTH_SERVICE_JWT.exceptions.UserAlreadyExistException;
-import com.mslearning.AUTH_SERVICE_JWT.exceptions.UserNotFoundException;
-import com.mslearning.AUTH_SERVICE_JWT.exceptions.WrongPasswordException;
+import com.mslearning.AUTH_SERVICE_JWT.exceptions.*;
 import com.mslearning.AUTH_SERVICE_JWT.models.Role;
 import com.mslearning.AUTH_SERVICE_JWT.models.Session;
+import com.mslearning.AUTH_SERVICE_JWT.models.SessionStatus;
 import com.mslearning.AUTH_SERVICE_JWT.models.User;
 import com.mslearning.AUTH_SERVICE_JWT.repositories.RoleRepository;
 import com.mslearning.AUTH_SERVICE_JWT.repositories.SessionRepository;
@@ -106,6 +105,7 @@ public class AuthService {
             calendar.add(Calendar.DAY_OF_MONTH, 30);
             Date datePlus30Days = calendar.getTime();
             session.setExpireAt(datePlus30Days);
+            session.setSessionStatus(SessionStatus.ACTIVE);
 
             sessionRepository.save(session);
 
@@ -115,7 +115,22 @@ public class AuthService {
         }
     }
 
-    public JwtUserDto validate(String token) {
+    public JwtUserDto validate(String token) throws InvalidRequestException, UserLoggedOutException {
+
+        // 1. Verify session exists
+        Session session = sessionRepository.findByToken(token)
+                .orElseThrow(() ->
+                        new UserLoggedOutException("Invalid session."));
+
+        // 2. Verify session status
+        if (session.getSessionStatus() != SessionStatus.ACTIVE) {
+            throw new UserLoggedOutException("User has already logged out.");
+        }
+
+        // 3. Verify session expiry
+        if (session.getExpireAt().before(new Date())) {
+            throw new UserLoggedOutException("Session has expired.");
+        }
 
         try {
         Jws<Claims> claimsJws = Jwts.parser()
@@ -135,7 +150,7 @@ public class AuthService {
 
         return response;
         } catch (Exception e) {
-            return null;
+            throw new InvalidRequestException("Invalid or expired JWT token.");
         }
     }
 
@@ -161,5 +176,18 @@ public class AuthService {
                 .compact();
 
         return token;
+    }
+
+    public void logout(String token) throws SessionNotFoundException, UserLoggedOutException {
+        Session session = sessionRepository.findByToken(token)
+                .orElseThrow(() ->
+                        new SessionNotFoundException("Session not found"));
+
+        if (session.getSessionStatus() == SessionStatus.ENDED) {
+            throw new UserLoggedOutException("User is already logged out.");
+        }
+
+        session.setSessionStatus(SessionStatus.ENDED);
+        sessionRepository.save(session);
     }
 }

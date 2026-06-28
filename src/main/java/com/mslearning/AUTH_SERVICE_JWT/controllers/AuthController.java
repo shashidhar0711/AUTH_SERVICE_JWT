@@ -1,6 +1,9 @@
 package com.mslearning.AUTH_SERVICE_JWT.controllers;
 
 import com.mslearning.AUTH_SERVICE_JWT.dtos.*;
+import com.mslearning.AUTH_SERVICE_JWT.exceptions.InvalidRequestException;
+import com.mslearning.AUTH_SERVICE_JWT.exceptions.SessionNotFoundException;
+import com.mslearning.AUTH_SERVICE_JWT.exceptions.UserLoggedOutException;
 import com.mslearning.AUTH_SERVICE_JWT.services.AuthService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -53,8 +56,21 @@ public class AuthController {
     }
 
     @GetMapping("/validate")
-    public JwtUserDto validate(@RequestParam("token") String token) {
+    public JwtUserDto validate(@RequestParam("token") String token) throws InvalidRequestException, UserLoggedOutException {
         System.out.println("Here I am");
         return authService.validate(token);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<LogoutResponseDto> logout(
+            @RequestHeader("AUTH_TOKEN") String token) throws UserLoggedOutException, SessionNotFoundException {
+
+        this.authService.logout(token);
+
+        LogoutResponseDto response = new LogoutResponseDto();
+        response.setRequestStatus(RequestStatus.SUCCESS);
+        response.setMessage("Logged out successfully.");
+
+        return ResponseEntity.ok(response);
     }
 }
